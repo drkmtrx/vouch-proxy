@@ -17,7 +17,6 @@ import (
 
 	"github.com/vouch/vouch-proxy/pkg/cfg"
 	"github.com/vouch/vouch-proxy/pkg/cookie"
-	"github.com/vouch/vouch-proxy/pkg/jwtmanager"
 	"github.com/vouch/vouch-proxy/pkg/responses"
 )
 
@@ -29,17 +28,6 @@ var errUnauthRedirURL = fmt.Errorf("/logout The requested url is not present in 
 // If "url" param present in request, also redirects to that (after destroying one or both sessions)
 func LogoutHandler(w http.ResponseWriter, r *http.Request) {
 	log.Debug("/logout")
-
-	jwt := jwtmanager.FindJWT(r)
-	claims, err := jwtmanager.ClaimsFromJWT(jwt)
-	if err != nil {
-		log.Error(err)
-	}
-
-	var token = ""
-	if claims != nil {
-		token = claims.PIdToken
-	}
 
 	cookie.ClearCookie(w, r)
 	log.Debug("/logout deleting session")
@@ -54,6 +42,7 @@ func LogoutHandler(w http.ResponseWriter, r *http.Request) {
 
 	providerLogoutURL := cfg.GenOAuth.LogoutURL
 	redirectURL := r.URL.Query().Get("url")
+	clientId := r.URL.Query().Get("clientid")
 
 	// Make sure that redirectURL, if given, is allowed by config
 	if redirectURL != "" {
@@ -83,10 +72,10 @@ func LogoutHandler(w http.ResponseWriter, r *http.Request) {
 		if redirectURL != "" {
 			q.Add("post_logout_redirect_uri", redirectURL)
 		}
-		if token != "" {
-			// Optional in spec, required by some providers (Okta, for example)
-			q.Add("id_token_hint", token)
+		if clientId != "" {
+			q.Add("client_id", clientId)
 		}
+
 		newRedirectURL.RawQuery = q.Encode()
 		redirectURL = newRedirectURL.String()
 	}

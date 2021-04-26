@@ -1,4 +1,4 @@
-# Vouch Proxy
+# Vouch Proxy (Auth0 edition)
 
 [![GitHub stars](https://img.shields.io/github/stars/vouch/vouch-proxy.svg)](https://github.com/vouch/vouch-proxy)
 [![Go Report Card](https://goreportcard.com/badge/github.com/vouch/vouch-proxy)](https://goreportcard.com/report/github.com/vouch/vouch-proxy)
@@ -51,6 +51,7 @@ If Vouch is running on the same host as the Nginx reverse proxy the response tim
   - [submitting a Pull Request for a new feature](#submitting-a-pull-request-for-a-new-feature)
 - [Advanced Authorization Using OpenResty](#advanced-authorization-using-openresty)
 - [The flow of login and authentication using Google Oauth](#the-flow-of-login-and-authentication-using-google-oauth)
+- [Auth0 related changes](#auth0-related-changes)
 
 ---
 
@@ -473,3 +474,10 @@ Note that outside of some innocuos redirection, Bob only ever sees `https://priv
 Once the JWT is set, Bob will be authorized for all other sites which are configured to use `https://vouch.oursites.com/validate` from the `auth_request` Nginx module.
 
 The next time Bob is forwarded to google for login, since he has already authorized the Vouch Proxy OAuth app, Google immediately forwards him back and sets the cookie and sends him on his merry way. In some browsers such as Chrome, Bob may not even notice that he logged in using Vouch Proxy.
+
+## Auth0 related changes
+
+- Logout redirect didn't work as Auth0 expects a specific form (https://auth0.com/docs/logout/redirect-users-after-logout) different from the default implementation.
+  - Logout will only work with Auth0!
+  - Changed the logout handling accordingly
+  - Logout by calling `https://vouch.oursites.com/logout?url={REDIRECT_URL}&clientid={YOUR_CLIENT_ID}`
