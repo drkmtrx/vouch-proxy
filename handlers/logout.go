@@ -70,7 +70,7 @@ func LogoutHandler(w http.ResponseWriter, r *http.Request) {
 
 		q := newRedirectURL.Query()
 		if redirectURL != "" {
-			q.Add("post_logout_redirect_uri", redirectURL)
+			q.Add("returnTo", redirectURL)
 		}
 		if clientId != "" {
 			q.Add("client_id", clientId)
