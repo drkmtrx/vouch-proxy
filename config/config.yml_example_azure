@@ -1,5 +1,5 @@
-# vouch config
-# bare minimum to get vouch running with Azure AD
+# Vouch Proxy configuration
+# bare minimum to get Vouch Proxy running with Azure AD
 # https://github.com/vouch/vouch-proxy/issues/290
 
 vouch:
@@ -23,3 +23,4 @@ oauth:
     - email
     - profile
   callback_url: https://vouch.yourdomain/auth
+  azure_token: id_token # access_token and id_token supported

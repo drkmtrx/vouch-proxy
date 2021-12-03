@@ -41,7 +41,6 @@ func setUp(configFile string) {
 	jwtmanager.Configure()
 	cookie.Configure()
 	responses.Configure()
-
 }
 
 func TestVerifyUserPositiveUserInWhiteList(t *testing.T) {
@@ -141,11 +140,11 @@ func init() {
 	// log.SetLevel(log.DebugLevel)
 
 	lc = jwtmanager.VouchClaims{
-		u1.Username,
-		customClaims.Claims,
-		t1.PAccessToken,
-		t1.PIdToken,
-		jwtmanager.StandardClaims,
+		Username:       u1.Username,
+		CustomClaims:   customClaims.Claims,
+		PAccessToken:   t1.PAccessToken,
+		PIdToken:       t1.PIdToken,
+		StandardClaims: jwtmanager.StandardClaims,
 	}
 	json.Unmarshal([]byte(claimjson), &customClaims.Claims)
 }

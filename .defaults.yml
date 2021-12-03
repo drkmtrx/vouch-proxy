@@ -9,6 +9,7 @@ vouch:
   testing: false
   listen: 0.0.0.0
   port: 9090
+  # document_root:
   # domains:
   allowAllUsers: false
   publicAccess: false
@@ -25,6 +26,7 @@ vouch:
     issuer: Vouch
     maxAge: 240
     compress: true
+    signing_method: HS256
 
   cookie:
     name: VouchCookie
@@ -36,6 +38,7 @@ vouch:
 
   session:
     name: VouchSession
+    maxAge: 5
     # key:
 
   headers:

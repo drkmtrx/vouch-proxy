@@ -14,7 +14,6 @@ import (
 	"errors"
 	"html/template"
 	"net/http"
-	"path/filepath"
 
 	"github.com/vouch/vouch-proxy/pkg/cfg"
 	"github.com/vouch/vouch-proxy/pkg/cookie"
@@ -24,9 +23,10 @@ import (
 
 // Index variables passed to index.tmpl
 type Index struct {
-	Msg      string
-	TestURLs []string
-	Testing  bool
+	Msg          string
+	TestURLs     []string
+	Testing      bool
+	DocumentRoot string
 }
 
 var (
@@ -43,23 +43,25 @@ func Configure() {
 	log = cfg.Logging.Logger
 	fastlog = cfg.Logging.FastLogger
 
-	log.Debugf("responses.Configure() attempting to parse templates with cfg.RootDir: %s", cfg.RootDir)
-	indexTemplate = template.Must(template.ParseFiles(filepath.Join(cfg.RootDir, "templates/index.tmpl")))
-
+	log.Debugf("responses.Configure() attempting to parse embedded templates")
+	indexTemplate = template.Must(template.ParseFS(cfg.Templates, "templates/index.tmpl"))
 }
 
 // RenderIndex render the response as an HTML page, mostly used in testing
 func RenderIndex(w http.ResponseWriter, msg string) {
-	if err := indexTemplate.Execute(w, &Index{Msg: msg, TestURLs: cfg.Cfg.TestURLs, Testing: cfg.Cfg.Testing}); err != nil {
+	if err := indexTemplate.Execute(w, &Index{Msg: msg, TestURLs: cfg.Cfg.TestURLs, Testing: cfg.Cfg.Testing, DocumentRoot: cfg.Cfg.DocumentRoot}); err != nil {
 		log.Error(err)
 	}
 }
 
 // renderError html error page
 // something terse for the end user
-func renderError(w http.ResponseWriter, msg string) {
+func renderError(w http.ResponseWriter, msg string, status int) {
 	log.Debugf("rendering error for user: %s", msg)
-	if err := indexTemplate.Execute(w, &Index{Msg: msg}); err != nil {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.WriteHeader(status)
+	if err := indexTemplate.Execute(w, &Index{Msg: msg, DocumentRoot: cfg.Cfg.DocumentRoot}); err != nil {
 		log.Error(err)
 	}
 }
@@ -72,7 +74,7 @@ func OK200(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// Redirect302 redirect to the specificed rURL
+// Redirect302 redirect to the specified rURL
 func Redirect302(w http.ResponseWriter, r *http.Request, rURL string) {
 	if cfg.Cfg.Testing {
 		cfg.Cfg.TestURLs = append(cfg.Cfg.TestURLs, rURL)
@@ -84,46 +86,45 @@ func Redirect302(w http.ResponseWriter, r *http.Request, rURL string) {
 
 // Error400 Bad Request
 func Error400(w http.ResponseWriter, r *http.Request, e error) {
-	log.Error(e)
-	cookie.ClearCookie(w, r)
-	w.Header().Set(cfg.Cfg.Headers.Error, e.Error())
-	w.WriteHeader(http.StatusBadRequest)
-	addErrandCancelRequest(r)
-	renderError(w, "400 Bad Request")
+	cancelClearSetError(w, r, e)
+	renderError(w, "400 Bad Request", http.StatusBadRequest)
 }
 
-// Error401 Unauthorized the standard error
+// Error401 Unauthorized, the standard error returned when failing /validate
 // this is captured by nginx, which converts the 401 into 302 to the login page
 func Error401(w http.ResponseWriter, r *http.Request, e error) {
-	log.Error(e)
-	addErrandCancelRequest(r)
-	cookie.ClearCookie(w, r)
-	w.Header().Set(cfg.Cfg.Headers.Error, e.Error())
+	cancelClearSetError(w, r, e)
 	http.Error(w, e.Error(), http.StatusUnauthorized)
 	// renderError(w, "401 Unauthorized")
+}
+
+// Error401HTTP
+func Error401HTTP(w http.ResponseWriter, r *http.Request, e error) {
+	cancelClearSetError(w, r, e)
+	renderError(w, e.Error(), http.StatusUnauthorized)
 }
 
 // Error403 Forbidden
 // if there's an error during /auth or if they don't pass validation in /auth
 func Error403(w http.ResponseWriter, r *http.Request, e error) {
-	log.Error(e)
-	addErrandCancelRequest(r)
-	cookie.ClearCookie(w, r)
-	w.Header().Set(cfg.Cfg.Headers.Error, e.Error())
-	w.WriteHeader(http.StatusForbidden)
-	renderError(w, "403 Forbidden")
+	cancelClearSetError(w, r, e)
+	renderError(w, "403 Forbidden", http.StatusForbidden)
 }
 
 // Error500 Internal Error
 // something is not right, hopefully this never happens
 func Error500(w http.ResponseWriter, r *http.Request, e error) {
-	log.Error(e)
+	cancelClearSetError(w, r, e)
 	log.Infof("If this error persists it may be worthy of a bug report but please check your setup first.  See the README at %s", cfg.Branding.URL)
-	addErrandCancelRequest(r)
+	renderError(w, "500 - Internal Server Error", http.StatusInternalServerError)
+}
+
+// cancelClearSetError convenience method to keep it DRY
+func cancelClearSetError(w http.ResponseWriter, r *http.Request, e error) {
+	log.Warn(e)
 	cookie.ClearCookie(w, r)
 	w.Header().Set(cfg.Cfg.Headers.Error, e.Error())
-	w.WriteHeader(http.StatusInternalServerError)
-	renderError(w, "500 - Internal Server Error")
+	addErrandCancelRequest(r)
 }
 
 // cfg.ErrCtx is tested by `jwtmanager.JWTCacheHandler`

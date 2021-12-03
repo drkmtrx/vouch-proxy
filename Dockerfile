@@ -1,6 +1,6 @@
 # voucher/vouch-proxy
 # https://github.com/vouch/vouch-proxy
-FROM golang:1.15 AS builder
+FROM golang:1.16 AS builder
 
 LABEL maintainer="vouch@bnf.net"
 
@@ -20,10 +20,6 @@ RUN ./do.sh install
 FROM scratch
 LABEL maintainer="vouch@bnf.net"
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
-COPY templates /templates
-COPY .defaults.yml /.defaults.yml 
-# see note for /static in main.go
-COPY static /static
 COPY --from=builder /go/bin/vouch-proxy /vouch-proxy
 EXPOSE 9090
 ENTRYPOINT ["/vouch-proxy"]

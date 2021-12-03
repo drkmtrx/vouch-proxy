@@ -94,6 +94,12 @@ func TestSetGitHubDefaultsWithTeamWhitelist(t *testing.T) {
 	assert.Contains(t, GenOAuth.Scopes, "read:org")
 }
 
+func TestCheckConfigWithRSA(t *testing.T) {
+	setUp("config/testing/test_config_rsa.yml")
+	assert.Contains(t, Cfg.JWT.PrivateKeyFile, "config/testing/rsa.key")
+	assert.Contains(t, Cfg.JWT.PublicKeyFile, "config/testing/rsa.pub")
+}
+
 func Test_claimToHeader(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -128,11 +134,11 @@ func Test_configureFromEnvCfg(t *testing.T) {
 	senv := []string{"VOUCH_LISTEN", "VOUCH_JWT_ISSUER", "VOUCH_JWT_SECRET", "VOUCH_HEADERS_JWT",
 		"VOUCH_HEADERS_USER", "VOUCH_HEADERS_QUERYSTRING", "VOUCH_HEADERS_REDIRECT", "VOUCH_HEADERS_SUCCESS", "VOUCH_HEADERS_ERROR",
 		"VOUCH_HEADERS_CLAIMHEADER", "VOUCH_HEADERS_ACCESSTOKEN", "VOUCH_HEADERS_IDTOKEN", "VOUCH_COOKIE_NAME", "VOUCH_COOKIE_DOMAIN",
-		"VOUCH_COOKIE_SAMESITE", "VOUCH_TESTURL", "VOUCH_SESSION_NAME", "VOUCH_SESSION_KEY"}
+		"VOUCH_COOKIE_SAMESITE", "VOUCH_TESTURL", "VOUCH_SESSION_NAME", "VOUCH_SESSION_KEY", "VOUCH_DOCUMENT_ROOT"}
 	// array of strings
 	saenv := []string{"VOUCH_DOMAINS", "VOUCH_WHITELIST", "VOUCH_TEAMWHITELIST", "VOUCH_HEADERS_CLAIMS", "VOUCH_TESTURLS", "VOUCH_POST_LOGOUT_REDIRECT_URIS"}
 	// int
-	ienv := []string{"VOUCH_PORT", "VOUCH_JWT_MAXAGE", "VOUCH_COOKIE_MAXAGE"}
+	ienv := []string{"VOUCH_PORT", "VOUCH_JWT_MAXAGE", "VOUCH_COOKIE_MAXAGE", "VOUCH_SESSION_MAXAGE"}
 	// bool
 	benv := []string{"VOUCH_ALLOWALLUSERS", "VOUCH_PUBLICACCESS", "VOUCH_JWT_COMPRESS", "VOUCH_COOKIE_SECURE",
 		"VOUCH_COOKIE_HTTPONLY", "VOUCH_TESTING"}
@@ -165,7 +171,7 @@ func Test_configureFromEnvCfg(t *testing.T) {
 	scfg := []string{Cfg.Listen, Cfg.JWT.Issuer, Cfg.JWT.Secret, Cfg.Headers.JWT,
 		Cfg.Headers.User, Cfg.Headers.QueryString, Cfg.Headers.Redirect, Cfg.Headers.Success, Cfg.Headers.Error,
 		Cfg.Headers.ClaimHeader, Cfg.Headers.AccessToken, Cfg.Headers.IDToken, Cfg.Cookie.Name, Cfg.Cookie.Domain,
-		Cfg.Cookie.SameSite, Cfg.TestURL, Cfg.Session.Name, Cfg.Session.Key,
+		Cfg.Cookie.SameSite, Cfg.TestURL, Cfg.Session.Name, Cfg.Session.Key, Cfg.DocumentRoot,
 	}
 
 	sacfg := [][]string{Cfg.Domains, Cfg.WhiteList, Cfg.TeamWhiteList, Cfg.Headers.Claims, Cfg.TestURLs, Cfg.LogoutRedirectURLs}
@@ -210,7 +216,7 @@ func Test_configureFromEnvOAuth(t *testing.T) {
 	senv := []string{
 		"OAUTH_PROVIDER", "OAUTH_CLIENT_ID", "OAUTH_CLIENT_SECRET", "OAUTH_AUTH_URL", "OAUTH_TOKEN_URL",
 		"OAUTH_END_SESSION_ENDPOINT", "OAUTH_CALLBACK_URL", "OAUTH_USER_INFO_URL", "OAUTH_USER_TEAM_URL", "OAUTH_USER_ORG_URL",
-		"OAUTH_PREFERREDDOMAIN",
+		"OAUTH_PREFERREDDOMAIN", "OAUTH_RELYING_PARTY_ID",
 	}
 	// array of strings
 	saenv := []string{"OAUTH_CALLBACK_URLS", "OAUTH_SCOPES"}
@@ -241,6 +247,7 @@ func Test_configureFromEnvOAuth(t *testing.T) {
 		GenOAuth.UserTeamURL,
 		GenOAuth.UserOrgURL,
 		GenOAuth.PreferredDomain,
+		GenOAuth.RelyingPartyId,
 	}
 	sacfg := [][]string{
 		GenOAuth.RedirectURLs,

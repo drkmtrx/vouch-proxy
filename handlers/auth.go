@@ -33,7 +33,7 @@ func CallbackHandler(w http.ResponseWriter, r *http.Request) {
 	errorIDP := r.URL.Query().Get("error")
 	if errorIDP != "" {
 		errorDescription := r.URL.Query().Get("error_description")
-		responses.Error401(w, r, fmt.Errorf("/auth Error from IdP: %s - %s", errorIDP, errorDescription))
+		responses.Error401HTTP(w, r, fmt.Errorf("/auth Error from IdP: %s - %s", errorIDP, errorDescription))
 		return
 	}
 
@@ -42,10 +42,11 @@ func CallbackHandler(w http.ResponseWriter, r *http.Request) {
 		responses.Error400(w, r, fmt.Errorf("/auth: could not find state in query %s", r.URL.RawQuery))
 		return
 	}
-	// has to have a trailing / in its path, because the path of the session cookie is set to /auth/{state}/.
-	authStateURL := fmt.Sprintf("/auth/%s/?%s", queryState, r.URL.RawQuery)
-	responses.Redirect302(w, r, authStateURL)
 
+	// has to have a trailing / in its path, because the path of the session cookie is set to /auth/{state}/.
+	// see note in login.go and https://github.com/vouch/vouch-proxy/issues/373
+	authStateURL := fmt.Sprintf("%s/auth/%s/?%s", cfg.Cfg.DocumentRoot, queryState, r.URL.RawQuery)
+	responses.Redirect302(w, r, authStateURL)
 }
 
 // AuthStateHandler /auth/{state}/
@@ -83,7 +84,7 @@ func AuthStateHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := getUserInfo(r, &user, &customClaims, &ptokens, authCodeOptions...); err != nil {
-		responses.Error400(w, r, fmt.Errorf("/auth Error while retreiving user info after successful login at the OAuth provider: %w", err))
+		responses.Error400(w, r, fmt.Errorf("/auth Error while retrieving user info after successful login at the OAuth provider: %w", err))
 		return
 	}
 	log.Debugf("/auth/{state}/ Claims from userinfo: %+v", customClaims)

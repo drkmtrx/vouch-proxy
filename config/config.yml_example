@@ -1,4 +1,4 @@
-# vouch config
+# Vouch Proxy configuration
 
 # you should probably start with one of the other example configs in this directory
 # Vouch Proxy does a fairly good job of setting its config to sane defaults
@@ -19,6 +19,10 @@ vouch:
 
   listen: 0.0.0.0  # VOUCH_LISTEN
   port: 9090       # VOUCH_PORT
+
+  # document_root - VOUCH_DOCUMENT_ROOT
+  # see README for `Vouch Proxy "in a path"` - https://github.com/vouch/vouch-proxy#vouch-proxy-in-a-path
+  # document_root: vp_in_a_path
 
   # domains - VOUCH_DOMAINS
   # each of these domains must serve the url https://vouch.$domains[0] https://vouch.$domains[1] ...
@@ -62,8 +66,15 @@ vouch:
     profile: intermediate                           # VOUCH_TLS_PROFILE
 
   jwt:
+    # signing_method: the algorithm used to sign the JWT.  # VOUCH_JWT_SIGNING_METHOD
+    # Can be one of HS256, HS384, HS512, RS256, RS384, RS512, ES256, ES384, ES512
+    # Default is HS256 (HMAC) - and requires jwt.secret to be set
+    # Both RS* (RSA) and ES* (ECDSA) methods require jwt.private_key_file and
+    # jwt.public_key_file to be set.
+    # signing_method: HS256
+
     # secret - VOUCH_JWT_SECRET
-    # a random string used to cryptographically sign the jwt
+    # a random string used to cryptographically sign the jwt when signing_method is set to HS256, HS384 or HS512
     # Vouch Proxy complains if the string is less than 44 characters (256 bits as 32 base64 bytes)
     # if the secret is not set here then Vouch Proxy will..
     # - look for the secret in `./config/secret`
@@ -71,6 +82,10 @@ vouch:
     # in order to run multiple instances of vouch on multiple servers (perhaps purely for validating the jwt),
     # you'll want them all to have the same secret
     secret: your_random_string
+
+    # Path to the public/private key files when using an RSA or ECDSA signing method.
+    # public_key_file:  # VOUCH_JWT_PUBLIC_KEY_FILE
+    # private_key_file: # VOUCH_JWT_PRIVATE_KEY_FILE
 
     # issuer: Vouch # VOUCH_JWT_ISSUER
 
@@ -106,6 +121,8 @@ vouch:
   session:
     # name of session variable stored locally - VOUCH_SESSION_NAME
     name: VouchSession
+    # number of minutes for maximum session age, configuring how long the user has to login at their IdP (defaults to 5) - VOUCH_SESSION_MAXAGE
+    maxAge: 5
     # key - a cryptographic string used to store the session variable - VOUCH_SESSION_KEY
     # if the key is not set here then it is generated at startup and stored in memory
     # Vouch Proxy complains if the string is less than 44 characters (256 bits as 32 base64 bytes)
@@ -186,7 +203,9 @@ vouch:
 #   preferreddomain:         OAUTH_PREFERREDDOMAIN
 #   callback_urls:           OAUTH_CALLBACK_URLS
 #   scopes:                  OAUTH_SCOPES
+#   claims:                  OAUTH_CLAIMS
 #   code_challenge_method:   OAUTH_CODE_CHALLENGE_METHOD
+#   relying_party_id         OAUTH_RELYING_PARTY_ID
 
 #
 # configure ONLY ONE of the following oauth providers
@@ -238,6 +257,25 @@ oauth:
     - email
     - profile
   callback_url: http://vouch.yourdomain.com:9090/auth
+  # optionally set the "claims" request parameter (see https://openid.net/specs/openid-connect-core-1_0.html#ClaimsParameter)
+  # required by Twitch, resolves issue https://github.com/vouch/vouch-proxy/issues/414
+  # claims:
+    # userinfo:
+      # given_name:
+        # essential: true
+      # nickname: null
+      # email:
+        # essential: true
+      # email_verified:
+        # essential: true
+      # picture: null
+      # "http://example.info/claims/groups": null
+    # id_token:
+      # auth_time:
+        # essential: true
+      # acr:
+        # values:
+          # - "urn:mace:incommon:iap:silver"
   # PKCE method if enabled, S256 is currently supported (check https://www.oauth.com/oauth2-servers/pkce/)
   # resolves issue https://github.com/vouch/vouch-proxy/issues/303
   code_challenge_method: S256
@@ -248,5 +286,20 @@ oauth:
   client_id: http://yourdomain.com
   auth_url: https://indielogin.com/auth
   callback_url: http://vouch.yourdomain.com:9090/auth
+
+  # adfs
+  provider: adfs
+  client_id:
+  client_secret:
+  auth_url: https://adfs.yourdomain.com/adfs/oauth2/authorize/
+  token_url: https://adfs.yourdomain.com/adfs/oauth2/token/
+  # vouch-proxy use RedirectURL as relying party identifier by default, if you want a custom one:
+  # see https://github.com/vouch/vouch-proxy/issues/189
+  # relying_party_id:  487d8ff7-80a8-4f62-b926-c2852ab06e94
+  scopes:
+    - openid
+    - email
+    - profile
+  callback_url: https://vouch.yourdomain.com/auth
 
 

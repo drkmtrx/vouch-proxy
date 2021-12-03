@@ -1,6 +1,6 @@
 
 # Vouch Proxy configuration
-# bare minimum to get Vouch Proxy running with Nextcloud Authentication
+# bare minimum to get Vouch Proxy running with Twitch
 
 vouch:
   # domains:
@@ -13,25 +13,31 @@ vouch:
   # - OR -
   # instead of setting specific domains you may prefer to allow all users...
   # set allowAllUsers: true to use Vouch Proxy to just accept anyone who can authenticate at the configured provider
+  # and set vouch.cookie.domain to the domain you wish to protect
   # allowAllUsers: true
 
   cookie:
     # allow the jwt/cookie to be set into http://yourdomain.com (defaults to true, requiring https://yourdomain.com) 
-    secure: false
+    # secure: false
     # vouch.cookie.domain must be set when enabling allowAllUsers
     # domain: yourdomain.com
 
 oauth:
-  # This assumes usage of pretty URLs otherwise add /index.php/
-  # to start of URL path
-  provider: nextcloud
+  # Generic OpenID Connect
+  provider: oidc
   client_id: xxxxxxxxxxxxxxxxxxxxxxxxxxxx
   client_secret: xxxxxxxxxxxxxxxxxxxxxxxx
-  auth_url: https://nextcloud.yourdomain.com/apps/oauth2/authorize
-  token_url: https://nextcloud.yourdomain.com/apps/oauth2/api/v1/token
-  user_info_url: https://nextcloud.yourdomain.com/ocs/v2.php/cloud/user?format=json
+  auth_url: https://id.twitch.tv/oauth2/authorize
+  token_url: https://id.twitch.tv/oauth2/token
+  user_info_url: https://id.twitch.tv/oauth2/userinfo
+  callback_url: https://vouch.yourdomain.com/auth
   scopes:
     - openid
-    - email
-    - profile
-  callback_url: http://vouch.yourdomain.com:9090/auth
+    - user:read:email
+  # Twitch uses the claims parameter to configure the information returned via `user_info_url`
+  claims:
+    userinfo:
+      email:
+        essential: true
+      email_verified:
+        essential: true

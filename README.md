@@ -1,24 +1,28 @@
 # Vouch Proxy (Auth0 edition)
 
 [![GitHub stars](https://img.shields.io/github/stars/vouch/vouch-proxy.svg)](https://github.com/vouch/vouch-proxy)
+[![Build Status](https://travis-ci.org/vouch/vouch-proxy.svg?branch=master)](https://travis-ci.org/vouch/vouch-proxy)
 [![Go Report Card](https://goreportcard.com/badge/github.com/vouch/vouch-proxy)](https://goreportcard.com/report/github.com/vouch/vouch-proxy)
 [![MIT license](https://img.shields.io/badge/license-MIT-green.svg)](https://github.com/vouch/vouch-proxy/blob/master/LICENSE)
-[![Docker pulls](https://img.shields.io/docker/pulls/voucher/vouch-proxy.svg)](https://hub.docker.com/r/voucher/vouch-proxy/)
 [![GitHub version](https://img.shields.io/github/v/tag/vouch/vouch-proxy.svg?sort=semver&color=green)](https://github.com/vouch/vouch-proxy)
 
 An SSO solution for Nginx using the [auth_request](http://nginx.org/en/docs/http/ngx_http_auth_request_module.html) module. Vouch Proxy can protect all of your websites at once.
 
 Vouch Proxy supports many OAuth and OIDC login providers and can enforce authentication to...
 
-- Google
-- [GitHub](https://developer.github.com/apps/building-integrations/setting-up-and-registering-oauth-apps/about-authorization-options-for-oauth-apps/)
-- GitHub Enterprise
+- [Google](https://github.com/vouch/vouch-proxy/blob/master/config/config.yml_example_google)
+- [GitHub](https://github.com/vouch/vouch-proxy/blob/master/config/config.yml_example_github)
+- [GitHub Enterprise](https://github.com/vouch/vouch-proxy/blob/master/config/config.yml_example_github_enterprise)
 - [IndieAuth](https://indieauth.spec.indieweb.org/)
 - [Okta](https://developer.okta.com/blog/2018/08/28/nginx-auth-request)
+- [Slack](https://github.com/vouch/vouch-proxy/blob/master/config/config.yml_example_slack)
 - [ADFS](https://github.com/vouch/vouch-proxy/pull/68)
 - [Azure AD](https://github.com/vouch/vouch-proxy/issues/290)
 - [Alibaba / Aliyun iDaas](https://github.com/vouch/vouch-proxy/issues/344)
 - [AWS Cognito](https://github.com/vouch/vouch-proxy/issues/105)
+- [Twitch](https://github.com/vouch/vouch-proxy/blob/master/config/config.yml_example_twitch)
+- [Discord](https://github.com/eltariel/foundry-docker-nginx-vouch)
+- [SecureAuth](https://github.com/vouch/vouch-proxy/blob/master/config/config.yml_example_secureauth)
 - [Gitea](https://github.com/vouch/vouch-proxy/blob/master/config/config.yml_example_gitea)
 - Keycloak
 - [OAuth2 Server Library for PHP](https://github.com/vouch/vouch-proxy/issues/99)
@@ -29,7 +33,7 @@ Vouch Proxy supports many OAuth and OIDC login providers and can enforce authent
 
 Please do let us know when you have deployed Vouch Proxy with your preffered IdP or library so we can update the list.
 
-If Vouch is running on the same host as the Nginx reverse proxy the response time from the `/validate` endpoint to Nginx should be less than 1ms
+If Vouch is running on the same host as the Nginx reverse proxy the response time from the `/validate` endpoint to Nginx should be **less than 1ms**.
 
 ---
 
@@ -37,14 +41,16 @@ If Vouch is running on the same host as the Nginx reverse proxy the response tim
 
 - [What Vouch Proxy Does...](#what-vouch-proxy-does)
 - [Installation and Configuration](#installation-and-configuration)
-- [Configuring Vouch Proxy using Environmental Variables](#configuring-vouch-proxy-using-environmental-variables)
-- [More advanced configurations](#more-advanced-configurations)
+  - [Vouch Proxy "in a path"](#vouch-proxy-in-a-path)
+  - [Additional Nginx Configurations](#additional-nginx-configurations)
+  - [Configuration via Environmental Variables](#configuring-via-environmental-variables)
+- [Tips, Tricks and Advanced Configurations](#tips-tricks-and-advanced-configurations)
   - [Scopes and Claims](#scopes-and-claims)
 - [Running from Docker](#running-from-docker)
 - [Kubernetes Nginx Ingress](#kubernetes-nginx-ingress)
 - [Compiling from source and running the binary](#compiling-from-source-and-running-the-binary)
 - [/login and /logout endpoint redirection](#-login-and--logout-endpoint-redirection)
-- [Troubleshooting, Support and Feature Requests](#troubleshooting--support-and-feature-requests--read-this-before-submitting-an-issue-at-github-)
+- [Troubleshooting, Support and Feature Requests](#troubleshooting-support-and-feature-requests-read-this-before-submitting-an-issue-at-github)
   (Read this before submitting an issue at GitHub)
   - [I'm getting an infinite redirect loop which returns me to my IdP (Google/Okta/GitHub/...)](#i-m-getting-an-infinite-redirect-loop-which-returns-me-to-my-idp--google-okta-github--)
   - [Okay, I looked at the issues and have tried some things with my configs but it's still not working](#okay--i-looked-at-the-issues-and-have-tried-some-things-with-my-configs-but-it-s-still-not-working)
@@ -53,9 +59,7 @@ If Vouch is running on the same host as the Nginx reverse proxy the response tim
 - [The flow of login and authentication using Google Oauth](#the-flow-of-login-and-authentication-using-google-oauth)
 - [Auth0 related changes](#auth0-related-changes)
 
----
-
-## What Vouch Proxy Does...
+## What Vouch Proxy Does
 
 Vouch Proxy (VP) forces visitors to login and authenticate with an [IdP](https://en.wikipedia.org/wiki/Identity_provider) (such as one of the services listed above) before allowing them access to a website.
 
@@ -175,11 +179,57 @@ server {
 }
 ```
 
+### Vouch Proxy "in a path"
+
+As of `v0.33.0` Vouch Proxy can be served within an Nginx location (path) by configuring `vouch.document_root: /vp_in_a_path`
+
+This avoids the need to setup a separate domain for Vouch Proxy such as `vouch.yourdomain.com`. For example VP login will be served from `https://protectedapp.yourdomain.com/vp_in_a_path/login`
+
+```{.nginxconf}
+server {
+    listen 443 ssl http2;
+    server_name protectedapp.yourdomain.com;
+
+    ssl_certificate /etc/letsencrypt/live/protectedapp.yourdomain.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/protectedapp.yourdomain.com/privkey.pem;
+
+    # This location serves all Vouch Proxy endpoints as /vp_in_a_path/$uri
+    #   including /vp_in_a_path/validate, /vp_in_a_path/login, /vp_in_a_path/logout, /vp_in_a_path/auth, /vp_in_a_path/auth/$STATE, etc
+    location /vp_in_a_path {
+      proxy_pass http://127.0.0.1:9090; # must not! have a slash at the end
+      proxy_set_header Host $http_host;
+      proxy_pass_request_body off;
+      proxy_set_header Content-Length "";
+
+      # these return values are used by the @error401 call
+      auth_request_set $auth_resp_jwt $upstream_http_x_vouch_jwt;
+      auth_request_set $auth_resp_err $upstream_http_x_vouch_err;
+      auth_request_set $auth_resp_failcount $upstream_http_x_vouch_failcount;
+    }
+
+    # if /vp_in_a_path/validate returns `401 not authorized` then forward the request to the error401block
+    error_page 401 = @error401;
+
+    location @error401 {
+        # redirect to Vouch Proxy for login
+        return 302 https://protectedapp.yourdomain.com/vp_in_a_path/login?url=$scheme://$http_host$request_uri&vouch-failcount=$auth_resp_failcount&X-Vouch-Token=$auth_resp_jwt&error=$auth_resp_err;
+    }
+
+    location / {
+      auth_request /vp_in_a_path/validate;
+      proxy_pass http://127.0.0.1:8080;
+      # see the Nginx config above for additional headers which can be set from Vouch Proxy
+    }
+}
+```
+
+### Additional Nginx Configurations
+
 Additional Nginx configurations can be found in the [examples](https://github.com/vouch/vouch-proxy/tree/master/examples) directory.
 
-## Configuring Vouch Proxy using Environmental Variables
+### Configuring via Environmental Variables
 
-Here's a minimal setup using Google OAuth...
+Here's a minimal setup using Google's OAuth...
 
 ```bash
 VOUCH_DOMAINS=yourdomain.com \
@@ -196,29 +246,34 @@ All lists with multiple values must be comma separated: `VOUCH_DOMAINS="yourdoma
 
 The variable `VOUCH_CONFIG` can be used to set an alternate location for the configuration file. `VOUCH_ROOT` can be used to set an alternate root directory for Vouch Proxy to look for support files.
 
-## More advanced configurations
+## Tips, Tricks and Advanced Configurations
 
 All Vouch Proxy configuration items are documented in [config/config.yml_example](https://github.com/vouch/vouch-proxy/blob/master/config/config.yml_example)
 
-- [cacheing of the Vouch Proxy validation response in Nginx](https://github.com/vouch/vouch-proxy/issues/76#issuecomment-464028743)
-- [handleing `OPTIONS` requests when protecting an API with Vouch Proxy](https://github.com/vouch/vouch-proxy/issues/216)
-- [validation by GitHub Team or GitHub Org](https://github.com/vouch/vouch-proxy/pull/205)
-- [running on a Raspberry Pi using the ARM based Docker image](https://github.com/vouch/vouch-proxy/pull/247)
+- [Cacheing of the Vouch Proxy `/validate` response in Nginx](https://github.com/vouch/vouch-proxy/issues/76#issuecomment-464028743)
+- [Handleing `OPTIONS` requests when protecting an API with Vouch Proxy](https://github.com/vouch/vouch-proxy/issues/216)
+- [Validation by GitHub Team or GitHub Org](https://github.com/vouch/vouch-proxy/pull/205)
+- [Running VP on a Raspberry Pi using the ARM based Docker image](https://github.com/vouch/vouch-proxy/pull/247)
 - [Kubernetes architecture post ingress](https://github.com/vouch/vouch-proxy/pull/263#issuecomment-628297832)
 - [set `HTTP_PROXY` to relay Vouch Proxy IdP requests through an outbound proxy server](https://github.com/vouch/vouch-proxy/issues/291)
 - [Reverse Proxy for Google Cloud Run Services](https://github.com/karthikv2k/oauth_reverse_proxy)
 - [Enable native TLS in Vouch Proxy](https://github.com/vouch/vouch-proxy/pull/332#issue-522612010)
 - [FreeBSD support](https://github.com/vouch/vouch-proxy/issues/368)
+- [`systemd` startup of Vouch Proxy](https://github.com/vouch/vouch-proxy/tree/master/examples/startup)
+- [Using Node.js instead of Nginx to route requests](https://github.com/vouch/vouch-proxy/issues/359)
+- [Developing a Single Page App (SPA) while consuming a VP protected API](https://github.com/vouch/vouch-proxy/issues/416)
+- [Integrate Vouch Proxy into a server side application for User Authn and Authz](https://github.com/vouch/vouch-proxy/issues/421)
+- [Filter by IP address before VP validation by using `satisfy any;`](https://github.com/vouch/vouch-proxy/issues/378#issuecomment-814423460)
 
 Please do help us to expand this list.
 
 ### Scopes and Claims
 
-With Vouch Proxy you can request various `scopes` (standard and custom) to obtain more information about the user or gain access to the provider's APIs. Internally, Vouch Proxy launches a requests to `user_info_url` after successful authentication. From the provider's response the required `claims` are extracted and stored in the vouch cookie.
+With Vouch Proxy you can request various `scopes` (standard and custom) to obtain more information about the user or gain access to the provider's APIs. Internally, Vouch Proxy launches a requests to `user_info_url` after successful authentication. The required `claims` are extracted from the provider's response and stored in the VP cookie.
 
 ⚠️ **Additional claims and tokens will be added to the VP cookie and can make it large**
 
-The VP cookie may get split up into several cookies, but if you need it, you need it. Large cookies and headers require Nginx to be configured with larger buffers. See [large_client_header_buffers](http://nginx.org/en/docs/http/ngx_http_core_module.html#large_client_header_buffers) and [proxy_buffer_size](http://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_buffer_size) for more information.
+The VP cookie may be split into several cookies to accomdate browser cookie size limits. But if you need it, you need it. Large cookies and headers require Nginx to be configured with larger buffers. See [large_client_header_buffers](http://nginx.org/en/docs/http/ngx_http_core_module.html#large_client_header_buffers) and [proxy_buffer_size](http://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_buffer_size) for more information.
 
 #### Setup `scopes` and `claims` in Vouch Proxy with Nginx
 
@@ -228,11 +283,11 @@ The VP cookie may get split up into several cookies, but if you need it, you nee
    1. set `idtoken: X-Vouch-IdP-IdToken` in the `headers` section of vouch-proxy's `config.yml`
    2. log in and call the `/validate` endpoint in a modern browser
    3. check the response header for a `X-Vouch-IdP-IdToken` header
-   4. copy the value of the header into the debugger at https://jwt.io/ and ensure that the necessary claims are part of the jwt
+   4. copy the value of the header into the debugger at [https://jwt.io/](https://jwt.io/) and ensure that the necessary claims are part of the jwt
    5. if they are not, you need to adjust the `scopes` in the `oauth` section of your `config.yml` or reconfigure your oauth provider
 2. Set the necessary `claims` in the `header` section of the vouch-proxy `config.yml`
    1. log in and call the `/validate` endpoint in a modern browser
-   2. check the response headers for headers of the form `X-Vouch-Idp-Claims-<ClaimName>`
+   2. check the response headers for headers of the form `X-Vouch-IdP-Claims-<ClaimName>`
    3. If they are not there clear your cookies and cached browser data
    4. 🐞 If they are still not there but exist in the jwt (esp. custom claims) there might be a bug
    5. remove the `idtoken: X-Vouch-IdP-IdToken` from the `headers` section of vouch-proxy's `config.yml` if you don't need it
@@ -246,7 +301,7 @@ docker run -d \
     -p 9090:9090 \
     --name vouch-proxy \
     -v ${PWD}/config:/config \
-    voucher/vouch-proxy
+    quay.io/vouch/vouch-proxy
 ```
 
 or
@@ -260,15 +315,23 @@ docker run -d \
     -e OAUTH_CLIENT_ID=1234 \
     -e OAUTH_CLIENT_SECRET=secretsecret \
     -e OAUTH_CALLBACK_URL=https://vouch.yourdomain.com/auth \
-    voucher/vouch-proxy
+    quay.io/vouch/vouch-proxy
 ```
 
-Automated container builds for each Vouch Proxy release are available from [Docker Hub](https://hub.docker.com/r/voucher/vouch-proxy/). Each release produces..
+Automated container builds for each Vouch Proxy release are available from [quay.io](https://quay.io/repository/vouch/vouch-proxy). Each release produces..
 
-- `voucher/vouch-proxy:latest`
-- `voucher/vouch-proxy:x.y.z`
-- `voucher/vouch-proxy:alpine`
-- `voucher/vouch-proxy:alpine-x.y.z`
+a minimal go binary container built from `Dockerfile`
+
+- `quay.io/vouch/vouch-proxy:latest`
+- `quay.io/vouch/vouch-proxy:x.y.z` such as `quay.io/vouch/vouch-proxy:0.28.0`
+
+an `alpine` based container built from `Dockerfile.alpine`
+
+- `quay.io/vouch/vouch-proxy:alpine-latest`
+- `quay.io/vouch/vouch-proxy:alpine-x.y.z`
+
+Vouch Proxy `arm` images are available on [Docker Hub](https://hub.docker.com/r/voucher/vouch-proxy/)
+
 - `voucher/vouch-proxy:latest-arm`
 
 ## Kubernetes Nginx Ingress
@@ -284,6 +347,11 @@ If you are using kubernetes with [nginx-ingress](https://github.com/kubernetes/i
       auth_request_set $auth_resp_jwt $upstream_http_x_vouch_jwt;
       auth_request_set $auth_resp_err $upstream_http_x_vouch_err;
       auth_request_set $auth_resp_failcount $upstream_http_x_vouch_failcount;
+      # when VP is hosted externally to k8s ensure the SSL cert is valid to avoid MITM risk
+      # proxy_ssl_trusted_certificate /etc/ssl/certs/ca-certificates.crt;
+      # proxy_ssl_session_reuse on;
+      # proxy_ssl_verify_depth 2;
+      # proxy_ssl_verify on;
 ```
 
 Helm Charts are maintained by [halkeye](https://github.com/halkeye) and are available at [https://github.com/halkeye-helm-charts/vouch](https://github.com/halkeye-helm-charts/vouch) / [https://halkeye.github.io/helm-charts/](https://halkeye.github.io/helm-charts/)
@@ -295,6 +363,8 @@ Helm Charts are maintained by [halkeye](https://github.com/halkeye) and are avai
   ./do.sh build
   ./vouch-proxy
 ```
+
+As of `v0.29.0` all templates, static assets and configuration defaults in `.defaults.yml` are built into the static binary using [go:embed](https://pkg.go.dev/embed) directives.
 
 ## /login and /logout endpoint redirection
 
@@ -323,7 +393,7 @@ this url must be present in the configuration file on the list `vouch.post_logou
 # the URL must still be passed to Vouch Proxy as https://vouch.yourdomain.com/logout?url=${ONE OF THE URLS BELOW}
 post_logout_redirect_uris:
   # your apps login page
-  - http://.yourdomain.com/login
+  - https://yourdomain.com/login
   # your IdPs logout enpoint
   # from https://accounts.google.com/.well-known/openid-configuration
   - https://oauth2.googleapis.com/revoke
@@ -378,7 +448,7 @@ TLDR:
 
 - set `vouch.testing: true`
 - set `vouch.logLevel: debug`
-- conduct a full round trip of `./vouch-proxy` capturing the output..
+- conduct two full round trips of `./vouch-proxy` capturing the output..
   - VP startup
   - `/validate`
   - `/login` - even if the error is here
@@ -395,28 +465,32 @@ TLDR:
   - and follow the instructions at the end to redact your Nginx config
 - all of those go into a [gist](https://gist.github.com/)
 - then [open a new issue](https://github.com/vouch/vouch-proxy/issues/new) in this repository
-- or visit our IRC channel [#vouch](irc://freenode.net/#vouch) on freenode
+- or visit our IRC channel [#vouch](irc.libera.chat/#vouch) on libera.chat
 
-A bug report can be generated from a docker environment using the `voucher/vouch-proxy:alpine` image...
+A bug report can be generated from a docker environment using the `quay.io/vouch/vouch-proxy:alpine` image...
 
 ```!bash
-docker run --name vouch_proxy -v $PWD/config:/config -v $PWD/certs:/certs -it --rm --entrypoint /do.sh voucher/vouch-proxy:alpine bug_report yourdomain.com anotherdomain.com someothersecret
+docker run --name vouch_proxy -v $PWD/config:/config -v $PWD/certs:/certs -it --rm --entrypoint /do.sh quay.io/vouch/vouch-proxy:alpine bug_report yourdomain.com anotherdomain.com someothersecret
 ```
 
-### submitting a Pull Request for a new feature
+### Contributing to Vouch Proxy by submitting a Pull Request
 
-I really love Vouch Proxy! I wish it did XXXX...
+**_I really love Vouch Proxy! I wish it did XXXX..._**
 
-Please make a proposal before you spend your time and our time integrating a new feature.
+That's really wonderful and contributions are greatly appreciated. However, please search through the existing issues, both open and closed, to look for any prior work or conversation. Then please make a proposal before we all spend valuable time considering and integrating a new feature.
 
 Code contributions should..
 
+- generally be discussed beforehand in a GitHub issue
 - include unit tests and in some cases end-to-end tests
 - be formatted with `go fmt`, checked with `go vet` and other common go tools
+- accomodate configuration via `config.yml` as well as `ENVIRONMENT_VARIABLEs`.
 - not break existing setups without a clear reason (usually security related)
-- and generally be discussed beforehand in a GitHub issue
+- include an entry at the top of CHANGELOG.md in the **Unreleased** section
 
 For larger contributions or code related to a platform that we don't currently support we will ask you to commit to supporting the feature for an agreed upon period. Invariably someone will pop up here with a question and we want to be able to support these requests.
+
+**Thank you to all of the contributors that have provided their time and effort and thought to improving VP.**
 
 ## Advanced Authorization Using OpenResty
 
